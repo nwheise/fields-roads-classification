@@ -1,10 +1,11 @@
 import os
 import numpy as np
-from Pillow import Image
+from PIL import Image
 
 FIELDS_FOLDER = 'fields'
 ROADS_FOLDER = 'roads'
 
 for f in os.listdir(FIELDS_FOLDER):
-    im = Image.open(f)
+    fname = os.path.join(FIELDS_FOLDER, f)
+    im = Image.open(fname)
     print(im.size)
