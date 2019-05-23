@@ -20,8 +20,8 @@ TRANSFORMS_FOLDER = 'transforms'
 TEST_SPLIT = 0.2
 SHUFFLE_DATASET = True
 RANDOM_SEED = 73
-BATCH_SIZE = 2
-EPOCHS = 2
+BATCH_SIZE = 5
+EPOCHS = 50
 
 
 def get_device():
@@ -58,16 +58,16 @@ def produce_data_loaders(data_folder, transform, TEST_SPLIT,
     if shuffle_dataset:
         np.random.seed(RANDOM_SEED)
         np.random.shuffle(indices)
-    val_indices, train_indices  = indices[:split], indices[split:]
+    test_indices, train_indices  = indices[:split], indices[split:]
 
     train_sampler = SubsetRandomSampler(train_indices)
-    test_sampler = SubsetRandomSampler(val_indices)
+    test_sampler = SubsetRandomSampler(test_indices)
     train_loader = torch.utils.data.DataLoader(dataset,
                                                batch_size=batch_size,
                                                sampler=train_sampler)
     test_loader = torch.utils.data.DataLoader(dataset,
-                                                    batch_size=batch_size,
-                                                    sampler=test_sampler)
+                                              batch_size=1,
+                                              sampler=test_sampler)
 
     return train_loader, test_loader
 
@@ -85,32 +85,28 @@ def save_images_from_loader(data_loader, folder):
         shutil.rmtree(folder)
     os.makedirs(folder)
 
-    for epoch in range(EPOCHS):
-
-        for i, data in enumerate(data_loader):
-            # data[0] is the data, data[1] are the labels
-            for j in range(data[0].shape[0]):
-                label = data[1][j]
-                to_pil_img = transforms.ToPILImage()
-                img = to_pil_img(data[0][j])
-                img.save(os.path.join(folder, f'{epoch}_{i}_{j}_{label}.jpg'))
+    for i, data in enumerate(data_loader):
+        # data[0] is the data, data[1] are the labels
+        for j in range(data[0].shape[0]):
+            label = data[1][j]
+            to_pil_img = transforms.ToPILImage()
+            img = to_pil_img(data[0][j])
+            img.save(os.path.join(folder, f'{i}_{j}_{label}.jpg'))
 
 
 def main():
 
-    classes = ('field', 'road')
     transform = transforms.Compose([
-        transforms.Resize(size=50),
-        transforms.RandomResizedCrop(size=50),
+        transforms.RandomResizedCrop(size=(50, 50), scale=(0.75, 1)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
         ])
 
     train_loader, test_loader = produce_data_loaders(DATA_FOLDER,
-                                                           transform,
-                                                           TEST_SPLIT,
-                                                           SHUFFLE_DATASET,
-                                                           BATCH_SIZE)
+                                                     transform,
+                                                     TEST_SPLIT,
+                                                     SHUFFLE_DATASET,
+                                                     BATCH_SIZE)
 
     device = get_device()
 
@@ -121,16 +117,18 @@ def main():
                                 folder=os.path.join(TRANSFORMS_FOLDER, 'test'))
 
     net = Net().to(device)
-    optimizer = torch.optim.SGD(params=net.parameters(), lr=0.001, momentum=0.9)
+    optimizer = torch.optim.Adam(params=net.parameters())
     criterion = torch.nn.CrossEntropyLoss()
 
-    print('Begin training')
-    print('Epoch  |  Batch  |  Loss')
+    print('----- Begin training -----')
+    print('  Epoch  |  Loss  ')
+    epoch_loss = []
     for epoch in range(EPOCHS):
         running_loss = 0.0
-        for i, data in enumerate(train_loader):
+        count = 0
+        for i, batch in enumerate(train_loader, 0):
             # get inputs
-            inputs, labels = data
+            inputs, labels = batch
             inputs, labels = inputs.to(device), labels.to(device)
 
             # zero the parameter gradients
@@ -148,11 +146,15 @@ def main():
 
             # print statistics
             running_loss += loss.item()
+            count += 1
 
-            checkpoint = 10
-            if i % checkpoint == checkpoint - 1:
-                print(f'{epoch}  {i}  {round(running_loss / checkpoint, 4)}\t')
-                running_loss = 0.0
+        avg_epoch_loss = round(running_loss / count, 4)
+        print(f'{epoch}'.center(9) + '|' + f'{avg_epoch_loss}'.center(8))
+        epoch_loss.append(avg_epoch_loss)
+    print('----- Training Done -----')
+
+    plt.plot(epoch_loss)
+    plt.show()
 
     # Evaluate accuracy on test
     correct = 0
@@ -168,8 +170,6 @@ def main():
             correct += (predicted == labels).sum().item()
 
         print(f'Accuracy of the net on the {total} test images: {100 * correct / total}%')
-
-
 
 
 if __name__ == '__main__':
