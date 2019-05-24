@@ -63,15 +63,17 @@ def produce_data_loaders(data_folder, transform, TEST_SPLIT,
     # Perform train / test split
     dataset_size = len(dataset)
     print(f'Augmented dataset size: {dataset_size}')
+
     indices = list(range(dataset_size))
     split = int(np.floor(TEST_SPLIT * dataset_size))
     print(f'Train size: {dataset_size - split}')
     print(f'Test size: {split}')
+
     if shuffle_dataset:
         np.random.seed(RANDOM_SEED)
         np.random.shuffle(indices)
-    test_indices, train_indices  = indices[:split], indices[split:]
 
+    test_indices, train_indices  = indices[:split], indices[split:]
     train_sampler = SubsetRandomSampler(train_indices)
     test_sampler = SubsetRandomSampler(test_indices)
 
@@ -100,7 +102,6 @@ def save_images_from_loader(data_loader, folder):
     os.makedirs(folder)
 
     for i, data in enumerate(data_loader):
-        # data[0] is the data, data[1] are the labels
         for j in range(data[0].shape[0]):
             label = data[1][j]
             to_pil_img = transforms.ToPILImage()
@@ -123,11 +124,11 @@ def train_network(net, optimizer, criterion, loader):
     device = get_device()
 
     print('----- Begin training -----')
-    print('  Epoch  |  Loss  ')
+    print('  Epoch  |  Avg Loss  ')
     epoch_loss = []
     for epoch in range(EPOCHS):
         running_loss = 0.0
-        count = 0
+        batches = 0
         for i, batch in enumerate(loader, 0):
             # get inputs
             inputs, labels = batch
@@ -146,13 +147,13 @@ def train_network(net, optimizer, criterion, loader):
             # optimize
             optimizer.step()
 
-            # print statistics
+            # track loss
             running_loss += loss.item()
-            count += 1
+            batches += 1
 
         # Print average loss for the epoch for the user
-        avg_epoch_loss = round(running_loss / count, 4)
-        print(f'{epoch}'.center(9) + '|' + f'{avg_epoch_loss}'.center(8))
+        avg_epoch_loss = round(running_loss / batches, 4)
+        print(f'{epoch}'.center(9) + '|' + f'{avg_epoch_loss}'.center(12))
         epoch_loss.append(avg_epoch_loss)
 
     print('----- Training Done -----')

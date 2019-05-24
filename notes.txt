@@ -1,2 +1,5 @@
 - Data is balanced between the two classes (45 original images of each)
 - Image dimensions are not the same
+- Dataset is small
+
+ask for permission to make github repo public
