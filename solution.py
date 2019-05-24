@@ -3,6 +3,7 @@ import shutil
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
+import split_folders
 
 import torch
 from torch.utils.data.sampler import SubsetRandomSampler
@@ -17,12 +18,11 @@ FIELDS_FOLDER = 'fields'
 ROADS_FOLDER = 'roads'
 TRANSFORMS_FOLDER = 'transforms'
 
-DATA_MULTIPLIER = 20
 TEST_SPLIT = 0.2
 SHUFFLE_DATASET = True
 RANDOM_SEED = 73
 BATCH_SIZE = 5
-EPOCHS = 20
+EPOCHS = 100
 
 
 def get_device():
@@ -38,38 +38,29 @@ def get_device():
     return device
 
 
-def produce_data_loaders(data_folder, transform, TEST_SPLIT,
-                         shuffle_dataset, batch_size):
+def produce_data_loaders(data_folder, transform):
     '''
     Returns a train loader and test loader for image data contained in
     data_folder. Images should be located in folders according to their class.
 
     Parameters
     data_folder: folder containing images (placed in subfolders)
-    transform: PyTorch transforms to be performed on images
-    TEST_SPLIT: [0, 1] proportion of data for test
-    shuffle_dataset: boolean, True if data should be shuffled before split
-    batch_size: batch size for data loaders
+    train_transform: PyTorch transforms to be performed on training images
+    test_transform: PyTorch transforms to be performed on test images
     '''
 
-    # Generate multiple images from each original image by loading in the data
-    # and applying random transformations multiple times.
+    # Create dataset from images
     dataset = datasets.ImageFolder(data_folder, transform=transform)
-    print(f'Original dataset size: {len(dataset)}')
-    for i in range(DATA_MULTIPLIER - 1):
-        add_dataset = datasets.ImageFolder(data_folder, transform=transform)
-        dataset = torch.utils.data.ConcatDataset(datasets=(dataset, add_dataset))
+    dataset_size = len(dataset)
+    print(f'Dataset size: {dataset_size}')
 
     # Perform train / test split
-    dataset_size = len(dataset)
-    print(f'Augmented dataset size: {dataset_size}')
-
     indices = list(range(dataset_size))
     split = int(np.floor(TEST_SPLIT * dataset_size))
     print(f'Train size: {dataset_size - split}')
     print(f'Test size: {split}')
 
-    if shuffle_dataset:
+    if SHUFFLE_DATASET:
         np.random.seed(RANDOM_SEED)
         np.random.shuffle(indices)
 
@@ -79,10 +70,10 @@ def produce_data_loaders(data_folder, transform, TEST_SPLIT,
 
     # Build data loaders from the dataset
     train_loader = torch.utils.data.DataLoader(dataset,
-                                               batch_size=batch_size,
+                                               batch_size=BATCH_SIZE,
                                                sampler=train_sampler)
     test_loader = torch.utils.data.DataLoader(dataset,
-                                              batch_size=batch_size,
+                                              batch_size=BATCH_SIZE,
                                               sampler=test_sampler)
 
     return train_loader, test_loader
@@ -224,11 +215,8 @@ def main():
         ])
 
     # Produce train and test data loaders
-    train_loader, test_loader = produce_data_loaders(DATA_FOLDER,
-                                                     transform,
-                                                     TEST_SPLIT,
-                                                     SHUFFLE_DATASET,
-                                                     BATCH_SIZE)
+    train_loader, test_loader = produce_data_loaders(data_folder=DATA_FOLDER,
+                                                     transform=transform)
 
     # Optionally save the transformed images that were created from originals
     if False:
