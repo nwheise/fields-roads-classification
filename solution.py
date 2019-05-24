@@ -17,7 +17,7 @@ FIELDS_FOLDER = 'fields'
 ROADS_FOLDER = 'roads'
 TRANSFORMS_FOLDER = 'transforms'
 
-DATA_MULTIPLIER = 10
+DATA_MULTIPLIER = 20
 TEST_SPLIT = 0.2
 SHUFFLE_DATASET = True
 RANDOM_SEED = 73
@@ -82,7 +82,7 @@ def produce_data_loaders(data_folder, transform, TEST_SPLIT,
                                                batch_size=batch_size,
                                                sampler=train_sampler)
     test_loader = torch.utils.data.DataLoader(dataset,
-                                              batch_size=1,
+                                              batch_size=batch_size,
                                               sampler=test_sampler)
 
     return train_loader, test_loader
@@ -210,8 +210,8 @@ def test_network(net, loader):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-        print(f'Accuracy of the net on the {total} test images: {100 * correct / total}%')
-
+        acc = round(100 * correct / total, 4)
+        print(f'Accuracy of the net on the {total} test images: {acc} %')
 
 
 def main():

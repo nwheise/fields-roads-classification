@@ -2,4 +2,8 @@
 - Image dimensions are not the same
 - Dataset is small
 
+- as long as the defining part of the image is captured by 75% of the image, the cropping transformation should be fine
+
+- occasionally loss becomes very large and then stays there, not sure what's happening
+TODO !! save some images from the test set (both correctly and incorrectly classified)
 ask for permission to make github repo public
