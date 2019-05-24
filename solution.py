@@ -14,13 +14,12 @@ from nets import FieldRoadNet
 
 
 DATA_FOLDER = 'data'
-FIELDS_FOLDER = 'fields'
-ROADS_FOLDER = 'roads'
+SPLIT_DATA_FOLDER = 'split_data'
+TRAIN_FOLDER = 'train'
+TEST_FOLDER = 'val'
 TRANSFORMS_FOLDER = 'transforms'
 
 TEST_SPLIT = 0.2
-SHUFFLE_DATASET = True
-RANDOM_SEED = 73
 BATCH_SIZE = 5
 EPOCHS = 100
 
@@ -38,15 +37,14 @@ def get_device():
     return device
 
 
-def produce_data_loaders(data_folder, transform):
+def produce_data_loader(data_folder, transform):
     '''
-    Returns a train loader and test loader for image data contained in
-    data_folder. Images should be located in folders according to their class.
+    Returns a data loader image data contained in data_folder.
+    Images should be located in folders according to their class.
 
     Parameters
     data_folder: folder containing images (placed in subfolders)
-    train_transform: PyTorch transforms to be performed on training images
-    test_transform: PyTorch transforms to be performed on test images
+    transform: PyTorch transforms to be performed on images
     '''
 
     # Create dataset from images
@@ -54,29 +52,10 @@ def produce_data_loaders(data_folder, transform):
     dataset_size = len(dataset)
     print(f'Dataset size: {dataset_size}')
 
-    # Perform train / test split
-    indices = list(range(dataset_size))
-    split = int(np.floor(TEST_SPLIT * dataset_size))
-    print(f'Train size: {dataset_size - split}')
-    print(f'Test size: {split}')
-
-    if SHUFFLE_DATASET:
-        np.random.seed(RANDOM_SEED)
-        np.random.shuffle(indices)
-
-    test_indices, train_indices  = indices[:split], indices[split:]
-    train_sampler = SubsetRandomSampler(train_indices)
-    test_sampler = SubsetRandomSampler(test_indices)
-
     # Build data loaders from the dataset
-    train_loader = torch.utils.data.DataLoader(dataset,
-                                               batch_size=BATCH_SIZE,
-                                               sampler=train_sampler)
-    test_loader = torch.utils.data.DataLoader(dataset,
-                                              batch_size=BATCH_SIZE,
-                                              sampler=test_sampler)
+    data_loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE)
 
-    return train_loader, test_loader
+    return data_loader
 
 
 def save_images_from_loader(data_loader, folder):
@@ -97,7 +76,7 @@ def save_images_from_loader(data_loader, folder):
             label = data[1][j]
             to_pil_img = transforms.ToPILImage()
             img = to_pil_img(data[0][j])
-            img.save(os.path.join(folder, f'{i}_{j}_{label}.jpg'))
+            img.save(os.path.join(folder, f'batch{i}_img{j}_lab{label}.jpg'))
 
 
 def train_network(net, optimizer, criterion, loader):
@@ -207,19 +186,32 @@ def test_network(net, loader):
 
 def main():
 
+    # Split data into train/test folders
+    split_folders.ratio(DATA_FOLDER, output=SPLIT_DATA_FOLDER, ratio=(0.8, 0.2))
+
     # Specify transforms on original data
-    transform = transforms.Compose([
-        transforms.RandomResizedCrop(size=(50, 50), scale=(0.75, 1)),
+    train_transform = transforms.Compose([
+        transforms.RandomResizedCrop(size=(50, 50), scale=(0.6, 1)),
         transforms.RandomHorizontalFlip(),
+        transforms.ToTensor()
+        ])
+    test_transform = transforms.Compose([
+        transforms.Resize(size=(50, 50)),
         transforms.ToTensor()
         ])
 
     # Produce train and test data loaders
-    train_loader, test_loader = produce_data_loaders(data_folder=DATA_FOLDER,
-                                                     transform=transform)
+    train_folder = os.path.join(SPLIT_DATA_FOLDER, TRAIN_FOLDER)
+    train_loader = produce_data_loader(data_folder=train_folder,
+                                       transform=train_transform)
+
+    test_folder = os.path.join(SPLIT_DATA_FOLDER, TEST_FOLDER)
+    test_loader = produce_data_loader(data_folder=test_folder,
+                                       transform=test_transform)
+
 
     # Optionally save the transformed images that were created from originals
-    if False:
+    if True:
         save_images_from_loader(data_loader=train_loader,
                                 folder=os.path.join(TRANSFORMS_FOLDER, 'train'))
         save_images_from_loader(data_loader=test_loader,
