@@ -2,5 +2,5 @@
 
 Clone the repo and then run
 ```
-setup.sh
+./setup.sh
 ```
