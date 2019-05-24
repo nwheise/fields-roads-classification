@@ -9,7 +9,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 import torchvision
 from torchvision import datasets, transforms, models, utils
 
-from nets import Net
+from nets import FieldRoadNet
 
 
 DATA_FOLDER = 'data'
@@ -17,11 +17,12 @@ FIELDS_FOLDER = 'fields'
 ROADS_FOLDER = 'roads'
 TRANSFORMS_FOLDER = 'transforms'
 
+DATA_MULTIPLIER = 10
 TEST_SPLIT = 0.2
 SHUFFLE_DATASET = True
 RANDOM_SEED = 73
 BATCH_SIZE = 5
-EPOCHS = 50
+EPOCHS = 20
 
 
 def get_device():
@@ -51,10 +52,21 @@ def produce_data_loaders(data_folder, transform, TEST_SPLIT,
     batch_size: batch size for data loaders
     '''
 
+    # Generate multiple images from each original image by loading in the data
+    # and applying random transformations multiple times.
     dataset = datasets.ImageFolder(data_folder, transform=transform)
+    print(f'Original dataset size: {len(dataset)}')
+    for i in range(DATA_MULTIPLIER - 1):
+        add_dataset = datasets.ImageFolder(data_folder, transform=transform)
+        dataset = torch.utils.data.ConcatDataset(datasets=(dataset, add_dataset))
+
+    # Perform train / test split
     dataset_size = len(dataset)
+    print(f'Augmented dataset size: {dataset_size}')
     indices = list(range(dataset_size))
     split = int(np.floor(TEST_SPLIT * dataset_size))
+    print(f'Train size: {dataset_size - split}')
+    print(f'Test size: {split}')
     if shuffle_dataset:
         np.random.seed(RANDOM_SEED)
         np.random.shuffle(indices)
@@ -62,6 +74,8 @@ def produce_data_loaders(data_folder, transform, TEST_SPLIT,
 
     train_sampler = SubsetRandomSampler(train_indices)
     test_sampler = SubsetRandomSampler(test_indices)
+
+    # Build data loaders from the dataset
     train_loader = torch.utils.data.DataLoader(dataset,
                                                batch_size=batch_size,
                                                sampler=train_sampler)
@@ -94,31 +108,19 @@ def save_images_from_loader(data_loader, folder):
             img.save(os.path.join(folder, f'{i}_{j}_{label}.jpg'))
 
 
-def main():
+def train_network(net, optimizer, criterion, loader):
+    '''
+    Perform training of net on data from loader, using specified optimizer and
+    criterion parameters.
 
-    transform = transforms.Compose([
-        transforms.RandomResizedCrop(size=(50, 50), scale=(0.75, 1)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor()
-        ])
-
-    train_loader, test_loader = produce_data_loaders(DATA_FOLDER,
-                                                     transform,
-                                                     TEST_SPLIT,
-                                                     SHUFFLE_DATASET,
-                                                     BATCH_SIZE)
+    Parameters
+    net: neural net to be trained
+    optimizer: torch.optim (such as Adam, SGD, etc.)
+    criterion: torch.nn criterion (e.g. Cross Entropy Loss)
+    loader: torch.utils.data.DataLoader containing data
+    '''
 
     device = get_device()
-
-    if False:
-        save_images_from_loader(data_loader=train_loader,
-                                folder=os.path.join(TRANSFORMS_FOLDER, 'train'))
-        save_images_from_loader(data_loader=test_loader,
-                                folder=os.path.join(TRANSFORMS_FOLDER, 'test'))
-
-    net = Net().to(device)
-    optimizer = torch.optim.Adam(params=net.parameters())
-    criterion = torch.nn.CrossEntropyLoss()
 
     print('----- Begin training -----')
     print('  Epoch  |  Loss  ')
@@ -126,7 +128,7 @@ def main():
     for epoch in range(EPOCHS):
         running_loss = 0.0
         count = 0
-        for i, batch in enumerate(train_loader, 0):
+        for i, batch in enumerate(loader, 0):
             # get inputs
             inputs, labels = batch
             inputs, labels = inputs.to(device), labels.to(device)
@@ -148,28 +150,104 @@ def main():
             running_loss += loss.item()
             count += 1
 
+        # Print average loss for the epoch for the user
         avg_epoch_loss = round(running_loss / count, 4)
         print(f'{epoch}'.center(9) + '|' + f'{avg_epoch_loss}'.center(8))
         epoch_loss.append(avg_epoch_loss)
+
     print('----- Training Done -----')
 
-    plt.plot(epoch_loss)
-    plt.show()
+    # Create plot of loss
+    plot_and_save_data(x=range(len(epoch_loss)),
+                       y=epoch_loss,
+                       title='Average Loss per Epoch',
+                       x_lab='Epoch',
+                       y_lab='Average Loss',
+                       filename='loss.jpg')
 
-    # Evaluate accuracy on test
+    return net
+
+
+def plot_and_save_data(x, y, title, x_lab, y_lab, filename):
+    '''
+    Generate plot from given data, and save the image.
+    '''
+
+    fig = plt.figure()
+    plt.plot(x, y)
+    fig.suptitle(title)
+    plt.xlabel(x_lab)
+    plt.ylabel(y_lab)
+    plt.show()
+    fig.savefig(filename)
+
+
+def test_network(net, loader):
+    '''
+    Test a trained neural net on data from loader. Print accuracy.
+
+    Parameters
+    net: trained neural network
+    loader: torch.utils.data.DataLoader containing data
+    '''
+
+    device = get_device()
+
     correct = 0
     total = 0
     with torch.no_grad():
-        for data in test_loader:
+        for data in loader:
             inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
 
+            # Get softmax outputs
             outputs = net(inputs)
+            # Predictions are the max softmax output
             _, predicted = torch.max(outputs.data, 1)
+
+            # Add to total and correct predictions
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
         print(f'Accuracy of the net on the {total} test images: {100 * correct / total}%')
+
+
+
+def main():
+
+    # Specify transforms on original data
+    transform = transforms.Compose([
+        transforms.RandomResizedCrop(size=(50, 50), scale=(0.75, 1)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor()
+        ])
+
+    # Produce train and test data loaders
+    train_loader, test_loader = produce_data_loaders(DATA_FOLDER,
+                                                     transform,
+                                                     TEST_SPLIT,
+                                                     SHUFFLE_DATASET,
+                                                     BATCH_SIZE)
+
+    # Optionally save the transformed images that were created from originals
+    if False:
+        save_images_from_loader(data_loader=train_loader,
+                                folder=os.path.join(TRANSFORMS_FOLDER, 'train'))
+        save_images_from_loader(data_loader=test_loader,
+                                folder=os.path.join(TRANSFORMS_FOLDER, 'test'))
+
+    # Initialize objects for the net
+    device = get_device()
+    field_road_net = FieldRoadNet().to(device)
+    optimizer = torch.optim.Adam(params=field_road_net.parameters())
+    criterion = torch.nn.CrossEntropyLoss()
+
+    # Train the network
+    field_road_net = train_network(net=field_road_net, optimizer=optimizer,
+                                   criterion=criterion, loader=train_loader)
+
+    # Evaluate accuracy on test
+    test_network(net=field_road_net, loader=test_loader)
 
 
 if __name__ == '__main__':

@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class Net(nn.Module):
+class FieldRoadNet(nn.Module):
 
     def __init__(self):
-        super(Net, self).__init__()
+        super(FieldRoadNet, self).__init__()
 
         # 50x50 input
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=6, kernel_size=5) # 46x46
@@ -14,7 +14,6 @@ class Net(nn.Module):
         # another maxpool makes it 10x10
         self.fc1 = nn.Linear(in_features=12*10*10, out_features=128)
         self.fc2 = nn.Linear(in_features=128, out_features=2)
-        # self.fc3 = nn.Linear(in_features=128, out_features=2)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -31,8 +30,6 @@ class Net(nn.Module):
         x = self.fc1(x)
         x = F.relu(x)
         x = self.fc2(x)
-        # x = F.relu(x)
-        # x = self.fc3(x)
 
         x = torch.sigmoid(x)
 
