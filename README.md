@@ -1,8 +1,6 @@
 # fields-roads-classification
 
+Clone the repo and then run
 ```
-mkdir data
-tar -xvzf data.tar.gz -C data
-conda env update --file env.yml
-source activate bil
+setup.sh
 ```
