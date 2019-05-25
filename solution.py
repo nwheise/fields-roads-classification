@@ -1,14 +1,11 @@
 import os
 import shutil
 import matplotlib.pyplot as plt
-import numpy as np
-from PIL import Image
 import split_folders
 
 import torch
-from torch.utils.data.sampler import SubsetRandomSampler
 import torchvision
-from torchvision import datasets, transforms, models, utils
+from torchvision import datasets, transforms
 
 from nets import FieldRoadNet
 
