@@ -17,5 +17,5 @@ training
 - cross entropy loss seems like a good standard criterion for classification
 - neural network is a CNN, with two convolutional layers with maxpools after, and two fully connected linear layers after
 - occasionally loss becomes very large and then stays there, not sure what's happening
-TODO !! save some images from the test set (both correctly and incorrectly classified)
+
 ask for permission to make github repo public

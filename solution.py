@@ -223,7 +223,7 @@ def main():
 
     # Specify transforms on original data
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(size=(50, 50), scale=(0.6, 1)),
+        transforms.RandomResizedCrop(size=(50, 50), scale=(0.5, 1)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
         ])
