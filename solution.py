@@ -13,12 +13,17 @@ from torchvision import datasets, transforms, models, utils
 from nets import FieldRoadNet
 
 
+# folder names
 DATA_FOLDER = 'data'
 SPLIT_DATA_FOLDER = 'split_data'
 TRAIN_FOLDER = 'train'
 TEST_FOLDER = 'val'
 TRANSFORMS_FOLDER = 'transforms'
+PREDICTIONS_FOLDER = 'predictions'
+CORRECT_FOLDER = 'correct'
+INCORRECT_FOLDER = 'incorrect'
 
+# params
 TEST_SPLIT = 0.2
 BATCH_SIZE = 5
 EPOCHS = 100
@@ -53,7 +58,8 @@ def produce_data_loader(data_folder, transform):
     print(f'Dataset size from {data_folder}: {dataset_size}')
 
     # Build data loaders from the dataset
-    data_loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE)
+    data_loader = torch.utils.data.DataLoader(dataset=dataset,
+                                              batch_size=BATCH_SIZE)
 
     return data_loader
 
@@ -153,21 +159,33 @@ def plot_and_save_data(x, y, title, x_lab, y_lab, filename):
     fig.savefig(filename)
 
 
-def test_network(net, loader):
+def test_network(net, loader, save_images):
     '''
     Test a trained neural net on data from loader. Print accuracy.
 
     Parameters
     net: trained neural network
     loader: torch.utils.data.DataLoader containing data
+    save_images: boolean, choose whether to save images from test set along with
+                 their predicted class
     '''
 
     device = get_device()
 
+    if save_images:
+        # Create folders to store predictions
+        if os.path.isdir(PREDICTIONS_FOLDER):
+            shutil.rmtree(PREDICTIONS_FOLDER)
+        os.makedirs(PREDICTIONS_FOLDER)
+        os.makedirs(os.path.join(PREDICTIONS_FOLDER, CORRECT_FOLDER))
+        os.makedirs(os.path.join(PREDICTIONS_FOLDER, INCORRECT_FOLDER))
+
     correct = 0
     total = 0
     with torch.no_grad():
+        batch = 0
         for data in loader:
+            # get inputs (images) and labels
             inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
 
@@ -176,10 +194,25 @@ def test_network(net, loader):
             # Predictions are the max softmax output
             _, predicted = torch.max(outputs.data, 1)
 
+            if save_images:
+                # Store images with predictions in folders
+                classes = ['field', 'road']
+                for i in range(inputs.shape[0]):
+                    plt.imshow(inputs[i].cpu().permute(1, 2, 0))
+                    plt.title(f'Prediction: {classes[predicted[i]]}')
+                    if labels[i] == predicted[i]:
+                        folder = os.path.join(PREDICTIONS_FOLDER, CORRECT_FOLDER)
+                    else:
+                        folder = os.path.join(PREDICTIONS_FOLDER, INCORRECT_FOLDER)
+                    plt.savefig(os.path.join(folder, f'batch{batch}_img{i}.jpg'))
+
             # Add to total and correct predictions
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
+            batch += 1
+
+        # Print test accuracy
         acc = round(100 * correct / total, 4)
         print(f'Accuracy of the net on the {total} test images: {acc} %')
 
@@ -213,7 +246,7 @@ def main():
 
 
     # Optionally save some transformed images that were created from originals
-    if True:
+    if False:
         save_images_from_loader(data_loader=train_loader,
                                 folder=os.path.join(TRANSFORMS_FOLDER, 'train'))
         save_images_from_loader(data_loader=test_loader,
@@ -231,7 +264,7 @@ def main():
                                    criterion=criterion, loader=train_loader)
 
     # Evaluate accuracy on test
-    test_network(net=field_road_net, loader=test_loader)
+    test_network(net=field_road_net, loader=test_loader, save_images=True)
 
 
 if __name__ == '__main__':
