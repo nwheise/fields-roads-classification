@@ -50,7 +50,7 @@ def produce_data_loader(data_folder, transform):
     # Create dataset from images
     dataset = datasets.ImageFolder(data_folder, transform=transform)
     dataset_size = len(dataset)
-    print(f'Dataset size: {dataset_size}')
+    print(f'Dataset size from {data_folder}: {dataset_size}')
 
     # Build data loaders from the dataset
     data_loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE)
@@ -187,7 +187,9 @@ def test_network(net, loader):
 def main():
 
     # Split data into train/test folders
-    split_folders.ratio(DATA_FOLDER, output=SPLIT_DATA_FOLDER, ratio=(0.8, 0.2))
+    split_folders.ratio(DATA_FOLDER,
+                        output=SPLIT_DATA_FOLDER,
+                        ratio=(1 - TEST_SPLIT, TEST_SPLIT))
 
     # Specify transforms on original data
     train_transform = transforms.Compose([
@@ -210,7 +212,7 @@ def main():
                                        transform=test_transform)
 
 
-    # Optionally save the transformed images that were created from originals
+    # Optionally save some transformed images that were created from originals
     if True:
         save_images_from_loader(data_loader=train_loader,
                                 folder=os.path.join(TRANSFORMS_FOLDER, 'train'))
@@ -219,6 +221,7 @@ def main():
 
     # Initialize objects for the net
     device = get_device()
+    print(f'Using device: {device}')
     field_road_net = FieldRoadNet().to(device)
     optimizer = torch.optim.Adam(params=field_road_net.parameters())
     criterion = torch.nn.CrossEntropyLoss()
